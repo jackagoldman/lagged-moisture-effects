@@ -1,0 +1,164 @@
+---
+title: "Data Cleaning"
+author: "Jack A. Goldman"
+date: "2025-12-26"
+format: html
+---
+
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(tidyverse)
+library(readr)
+library(zoo)
+
+# load fire information
+fire_info <- read_csv("data/fire_information.csv") |> 
+        filter(!coalesce(PRESCRIBED, FALSE))  # remove fires where PRESCRIBED == TRUE
+```
+
+
+# Purpose 
+
+The purpose of this script is to clean and preprocess the raw dataset for further analysis. 
+
+# VPD data cleaning for lagged analysis
+```{r}
+# Load the raw dataset
+vpd_data <- read_csv("data/vpd_weather_daily_processed_v2.csv")
+# Inspect the data
+head(vpd_data)
+str(vpd_data)
+```
+
+
+For each GID filter date so that we only have dates within 30 days before fire start date (fire starte date is the Start_Date column in fire_info) and add column lag that is 1-30 for days before fire start date
+
+```{r}
+vpd_30 = vpd_data |> 
+    left_join(fire_info |> select(GID, Start_Date), by = "GID") |> 
+    mutate(
+        date = as.Date(date),
+        Start_Date = as.Date(Start_Date)
+    ) |> 
+    filter(date >= (Start_Date - 30) & date < Start_Date) |>  # keep 1–30 days before start
+    mutate(lag = as.integer(Start_Date - date)) |>            # lag = 1..30
+    select(-Start_Date)
+
+```
+
+
+VPD matrix for distributed lag model
+Currently in long format, need to convert to wide format with each column as vpd for a specific lag and each row as a fire event (GID) but arrange columns by lag vpd_lag_1 to vpd_lag_30
+```{r}
+vpd_wide = vpd_30 %>%
+    select(GID, lag, vpd) %>%
+    arrange(lag) %>%
+    pivot_wider(names_from = lag, values_from = vpd, names_prefix = "vpd_") %>%
+    drop_na() |> 
+    arrange(GID)
+
+vpd_wide_gids = unique(vpd_wide$GID)
+nrow(vpd_wide)
+```
+
+Save vpd_wide as vpd_30_wide.csv
+```{r}
+saveRDS(vpd_wide, "data/cleaned/vpd_30_wide.rds")
+```
+
+# vpd data cleaning for moving average over 30 days
+```{r}
+
+vpd_ma_30 = vpd_data |> 
+    left_join(fire_info |> select(GID, Start_Date), by = "GID") |> 
+    mutate(
+        date = as.Date(date),
+        Start_Date = as.Date(Start_Date)
+    ) |> 
+    arrange(GID, date) |> 
+    group_by(GID) |> 
+    filter(date >= (Start_Date - 30) & date < Start_Date) |> 
+    mutate(vpd_ma_30 = zoo::rollapply(vpd, width = 30, FUN = function(x) mean(x, na.rm = TRUE), fill = NA, align = "right")) |> 
+    summarize(
+        vpd_ma_30 = { tmp <- na.omit(vpd_ma_30); if (length(tmp)) tmp[length(tmp)] else NA_real_ },
+        .groups = "drop"
+    ) |> 
+    drop_na() 
+```
+
+Save vpd_ma_30 
+
+```{r}
+saveRDS(vpd_ma_30, "data/cleaned/vpd_ma_30.rds")
+```
+
+ # RBR data cleaning
+ Load RBR zonal stats data and select only GID, median, and 90th percentile
+
+ ```{r}
+rbr_data = read_csv("data/batch_rbr_w_offset_zonal_stats.csv") |> 
+    select(GID, median, percentile_90)  |> 
+    rename(pct_90 = percentile_90) 
+
+ ```
+
+ Save cleaned RBR data
+ ```{r}
+saveRDS(rbr_data, "data/cleaned/rbr_cleaned.rds")
+ ```
+
+# Landcover cleaning
+
+
+```{r}
+landcover_data = read_csv("data/fire_landcover_pct_v1.csv") 
+
+head(landcover_data)
+
+landcover_cleaned = landcover_data |> 
+    select(GID, coniferous, percent_upland, percent_wetland) |> 
+    rename(pct_conf = coniferous, 
+           pct_up = percent_upland, 
+           pct_wet = percent_wetland)
+
+saveRDS(landcover_cleaned, "data/cleaned/landcover_cleaned.rds")
+```
+
+# fire information cleaning
+
+```{r}
+fire_info_cleaned = fire_info |> 
+        select(GID, YEAR, POLY_HA, Start_Date) |> 
+        rename(fire_size_ha = POLY_HA, 
+               year = YEAR, 
+               start_date = Start_Date) |> 
+        mutate(month = as.integer(format(as.Date(start_date), "%m")))
+
+```
+
+if fire burned before june 1 set it as spring fire season else summer fire season 
+The reason for this is because aspen/deciduous leaf out changes the flammability of the landscape and has been shown to impact fire intensity/severity between spring/summer (Podur and Martell 2009; Parisien et al. 2023)
+
+```{r}
+fire_info_cleaned = fire_info_cleaned |> 
+    mutate(season = ifelse(month < 6, "spring", "summer"))
+```
+
+save the file
+
+```{r}
+saveRDS(fire_info_cleaned, "data/cleaned/fire_info_cleaned.rds")
+```
+
+
+# Ecoregion
+
+make sure there are no duplicate GIDs in aou_fire_ecoregion.csv, if there are duplicates, keep the first one and drop the rest
+```{r}
+ecoregion_data = read_csv("data/aou_fire_ecoregion.csv") |> 
+    distinct(GID, .keep_all = TRUE)
+
+saveRDS(ecoregion_data, "data/cleaned/ecoregion_cleaned.rds")
+```

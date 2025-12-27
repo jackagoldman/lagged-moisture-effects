@@ -1,0 +1,376 @@
+GID,ECOREGION_,ecoregion_lvl
+2024_646,Lake Nipigon,1
+2024_647,Lake Wabigoon,2
+2024_651,Pigeon River,3
+2023_159,Lake St. Joseph,4
+2023_175,Lake St. Joseph,4
+2023_177,Lake St. Joseph,4
+2023_201,Lake St. Joseph,4
+2023_1614,Big Trout Lake,6
+2023_1627,Lake St. Joseph,4
+2023_1633,Pigeon River,3
+2021_297,Lake Wabigoon,2
+2021_1169,Big Trout Lake,6
+2021_1204,Pigeon River,3
+2021_1204,Lake Nipigon,1
+2021_1303,Lake Wabigoon,2
+2021_1321,Lake Nipigon,1
+2021_1353,Lake Nipigon,1
+2021_1484,Pigeon River,3
+2021_1619,Big Trout Lake,6
+2021_1742,Lake St. Joseph,4
+2021_1890,Lake Nipigon,1
+2021_1898,Big Trout Lake,6
+2021_1988,Lake Wabigoon,2
+2021_2012,Lake St. Joseph,4
+2021_2306,Lake Wabigoon,2
+2021_2312,Lake St. Joseph,4
+2021_2313,Lake Wabigoon,2
+2021_2314,Pigeon River,3
+2021_2316,Lake Wabigoon,2
+2021_2319,Lake Nipigon,1
+2021_2321,Lake Wabigoon,2
+2021_2322,Lake Nipigon,1
+2021_2326,Lake Nipigon,1
+2020_358,Lake Wabigoon,2
+2020_525,Lake Nipigon,1
+2020_530,Lake St. Joseph,4
+2020_532,Lake St. Joseph,4
+2019_748,Lake St. Joseph,4
+2019_748,Lake Wabigoon,2
+2019_768,Lake St. Joseph,4
+2019_833,Lake Nipigon,1
+2019_834,Lake Wabigoon,2
+2019_1518,Lake Wabigoon,2
+2019_1520,Lake St. Joseph,4
+2018_403,Lake Wabigoon,2
+2018_598,Lake Nipigon,1
+2018_802,Lake Wabigoon,2
+2018_1731,Lake St. Joseph,4
+2018_1821,Lake St. Joseph,4
+2018_2101,Lake St. Joseph,4
+2018_2101,Lake Wabigoon,2
+2018_2807,Lake Wabigoon,2
+2018_2808,Lake St. Joseph,4
+2018_2810,Big Trout Lake,6
+2018_2811,Lake St. Joseph,4
+2017_2252,Big Trout Lake,6
+2017_2545,Lake St. Joseph,4
+2017_2883,Lake Nipigon,1
+2017_3692,Lake Wabigoon,2
+2016_693,Lake Nipigon,1
+2016_1167,Lake Nipigon,1
+2016_1171,Lake Nipigon,1
+2015_1136,Lake St. Joseph,4
+2015_1140,Lake Wabigoon,2
+2015_1153,Big Trout Lake,6
+2015_1178,Lake Wabigoon,2
+2015_1984,Lake Wabigoon,2
+2014_1657,Lake St. Joseph,4
+2014_2246,Lake St. Joseph,4
+2014_2246,Lake Wabigoon,2
+2014_2247,Lake St. Joseph,4
+2014_2248,Lake Wabigoon,2
+2014_2249,Lake St. Joseph,4
+2013_929,Lake St. Joseph,4
+2013_929,Lake Wabigoon,2
+2013_1183,Lake Nipigon,1
+2013_1184,Lake St. Joseph,4
+2012_724,Big Trout Lake,6
+2012_734,Lake St. Joseph,4
+2012_745,Lake St. Joseph,4
+2012_745,Lake Wabigoon,2
+2012_776,Lake Wabigoon,2
+2012_1041,Lake Wabigoon,2
+2012_1043,Lake Wabigoon,2
+2012_1753,Big Trout Lake,6
+2012_1782,Lake St. Joseph,4
+2011_455,Lake St. Joseph,4
+2011_495,Lake St. Joseph,4
+2011_498,Lake St. Joseph,4
+2011_507,Big Trout Lake,6
+2011_507,Lake Nipigon,1
+2011_513,Lake St. Joseph,4
+2011_568,Lake Nipigon,1
+2011_725,Lake Wabigoon,2
+2011_727,Lake Nipigon,1
+2011_728,Lake Wabigoon,2
+2011_730,Lake Nipigon,1
+2010_546,Lake St. Joseph,4
+2010_558,Lake St. Joseph,4
+2010_872,Lake Wabigoon,2
+2010_874,Lake Nipigon,1
+2010_875,Lake Wabigoon,2
+2010_876,Lake St. Joseph,4
+2010_884,Lake St. Joseph,4
+2007_362,Lake Nipigon,1
+2007_375,Lake Wabigoon,2
+2007_380,Lake Nipigon,1
+2007_492,Lake Nipigon,1
+2007_493,Lake Nipigon,1
+2007_867,Lake Wabigoon,2
+2007_991,Lake Wabigoon,2
+2007_993,Big Trout Lake,6
+2006_659,Lake Nipigon,1
+2006_665,Lake Nipigon,1
+2006_671,Lake Nipigon,1
+2006_676,Lake Nipigon,1
+2006_677,Lake Nipigon,1
+2006_680,Lake Nipigon,1
+2006_681,Lake Nipigon,1
+2006_682,Lake Nipigon,1
+2006_686,Lake Nipigon,1
+2006_687,Lake Nipigon,1
+2006_688,Lake Nipigon,1
+2006_690,Lake Nipigon,1
+2006_692,Lake Nipigon,1
+2006_693,Lake Nipigon,1
+2006_696,Lake Nipigon,1
+2006_698,Lake Nipigon,1
+2006_699,Lake Nipigon,1
+2006_700,Lake Nipigon,1
+2006_701,Lake Nipigon,1
+2006_702,Lake Nipigon,1
+2006_703,Lake Nipigon,1
+2006_708,Lake Nipigon,1
+2006_709,Lake Nipigon,1
+2006_710,Lake Nipigon,1
+2006_714,Lake Nipigon,1
+2006_723,Lake Nipigon,1
+2006_724,Lake Nipigon,1
+2006_725,Lake Nipigon,1
+2006_747,Lake Nipigon,1
+2006_748,Lake Nipigon,1
+2006_749,Lake Nipigon,1
+2006_750,Lake Nipigon,1
+2006_751,Lake Nipigon,1
+2006_870,Lake Nipigon,1
+2006_871,Lake Nipigon,1
+2006_872,Lake Nipigon,1
+2006_873,Lake Nipigon,1
+2006_874,Lake Nipigon,1
+2006_877,Lake Nipigon,1
+2006_878,Lake Nipigon,1
+2006_879,Lake Nipigon,1
+2006_880,Lake Nipigon,1
+2006_881,Lake Nipigon,1
+2006_883,Lake Nipigon,1
+2006_884,Lake Nipigon,1
+2006_886,Big Trout Lake,6
+2006_898,Lake Nipigon,1
+2005_463,Big Trout Lake,6
+2005_472,Big Trout Lake,6
+2005_488,Lake Nipigon,1
+2005_493,Lake Nipigon,1
+2005_496,Lake Nipigon,1
+2005_515,Lake Nipigon,1
+2005_598,Lake Nipigon,1
+2005_1270,Lake Nipigon,1
+2005_1311,Lake Nipigon,1
+2003_735,Lake St. Joseph,4
+2003_750,Lake St. Joseph,4
+2003_796,Lake Nipigon,1
+2003_807,Lake Nipigon,1
+2003_814,Lake Nipigon,1
+2003_815,Lake Wabigoon,2
+2003_828,Pigeon River,3
+2003_828,Lake Nipigon,1
+2003_834,Agassiz Clay Plain,5
+2003_880,Pigeon River,3
+2003_883,Lake Wabigoon,2
+2003_885,Lake Wabigoon,2
+2003_886,Lake Nipigon,1
+2002_641,Lake St. Joseph,4
+2002_655,Lake St. Joseph,4
+2002_664,Big Trout Lake,6
+2002_669,Lake St. Joseph,4
+2002_675,Lake Wabigoon,2
+2002_686,Lake Nipigon,1
+2002_689,Lake Nipigon,1
+2002_691,Lake Nipigon,1
+2002_714,Lake Nipigon,1
+2002_715,Lake Nipigon,1
+2002_716,Lake Wabigoon,2
+2002_717,Lake Nipigon,1
+2002_1204,Lake Wabigoon,2
+2001_314,Big Trout Lake,6
+2001_353,Lake Nipigon,1
+2001_357,Agassiz Clay Plain,5
+2001_360,Lake Wabigoon,2
+2001_361,Big Trout Lake,6
+2000_431,Lake Nipigon,1
+2000_451,Lake Wabigoon,2
+2000_531,Agassiz Clay Plain,5
+2000_532,Agassiz Clay Plain,5
+2000_533,Lake Nipigon,1
+1999_463,Lake St. Joseph,4
+1999_468,Lake St. Joseph,4
+1999_474,Lake St. Joseph,4
+1999_507,Lake Nipigon,1
+1999_521,Lake Nipigon,1
+1999_537,Lake Nipigon,1
+1999_697,Agassiz Clay Plain,5
+1999_698,Lake Nipigon,1
+1999_1125,Lake Wabigoon,2
+1998_714,Lake Nipigon,1
+1998_732,Lake Nipigon,1
+1998_737,Lake Nipigon,1
+1998_741,Lake Nipigon,1
+1998_843,Pigeon River,3
+1998_844,Agassiz Clay Plain,5
+1998_845,Lake Nipigon,1
+1998_846,Agassiz Clay Plain,5
+1998_851,Lake Nipigon,1
+1998_853,Lake Nipigon,1
+1998_855,Lake Nipigon,1
+1998_856,Lake Nipigon,1
+1998_859,Lake Nipigon,1
+1998_860,Big Trout Lake,6
+1998_862,Lake Nipigon,1
+1997_338,Lake St. Joseph,4
+1997_338,Lake Wabigoon,2
+1996_529,Lake St. Joseph,4
+1996_540,Lake St. Joseph,4
+1996_561,Big Trout Lake,6
+1996_568,Big Trout Lake,6
+1996_569,Big Trout Lake,6
+1996_575,Big Trout Lake,6
+1996_579,Lake St. Joseph,4
+1996_580,Big Trout Lake,6
+1996_582,Lake St. Joseph,4
+1996_582,Lake Nipigon,1
+1996_583,Big Trout Lake,6
+1996_584,Lake Nipigon,1
+1996_585,Lake Nipigon,1
+1996_586,Lake Nipigon,1
+1996_587,Big Trout Lake,6
+1996_588,Lake St. Joseph,4
+1996_590,Lake Nipigon,1
+1996_598,Lake St. Joseph,4
+1996_600,Lake Nipigon,1
+1996_602,Lake Nipigon,1
+1996_604,Lake Nipigon,1
+1996_614,Lake Nipigon,1
+1996_622,Lake Nipigon,1
+1996_625,Lake Nipigon,1
+1996_627,Lake Nipigon,1
+1996_628,Lake Nipigon,1
+1996_630,Lake Nipigon,1
+1996_632,Lake Nipigon,1
+1996_635,Lake Nipigon,1
+1996_639,Lake Nipigon,1
+1996_640,Lake Wabigoon,2
+1996_640,Lake Nipigon,1
+1996_644,Lake Wabigoon,2
+1996_644,Lake Nipigon,1
+1996_646,Lake Nipigon,1
+1996_650,Lake Nipigon,1
+1996_651,Lake Nipigon,1
+1996_652,Lake Nipigon,1
+1996_653,Lake Wabigoon,2
+1996_653,Lake Nipigon,1
+1996_654,Lake Nipigon,1
+1996_656,Lake Wabigoon,2
+1996_657,Lake Nipigon,1
+1996_659,Lake Nipigon,1
+1996_660,Lake Nipigon,1
+1996_665,Lake Nipigon,1
+1996_667,Lake Nipigon,1
+1996_668,Lake Nipigon,1
+1996_670,Lake Nipigon,1
+1996_671,Lake Nipigon,1
+1996_674,Lake Nipigon,1
+1996_675,Lake Nipigon,1
+1996_678,Lake Nipigon,1
+1996_715,Lake Wabigoon,2
+1996_716,Lake Nipigon,1
+1995_1102,Lake St. Joseph,4
+1995_1106,Lake St. Joseph,4
+1995_1121,Lake St. Joseph,4
+1995_1146,Lake St. Joseph,4
+1995_1146,Lake Wabigoon,2
+1995_1164,Big Trout Lake,6
+1995_1165,Lake St. Joseph,4
+1995_1180,Big Trout Lake,6
+1995_1192,Lake Nipigon,1
+1995_1212,Lake Nipigon,1
+1995_1220,Lake St. Joseph,4
+1995_1226,Lake Nipigon,1
+1995_1232,Lake St. Joseph,4
+1995_1232,Lake Wabigoon,2
+1995_1235,Lake Nipigon,1
+1995_1238,Lake Wabigoon,2
+1995_1241,Lake Wabigoon,2
+1995_1250,Lake Wabigoon,2
+1995_1255,Lake Wabigoon,2
+1995_1267,Lake Nipigon,1
+1995_1271,Lake Wabigoon,2
+1995_1271,Lake Nipigon,1
+1995_1276,Lake Wabigoon,2
+1995_1297,Lake Wabigoon,2
+1995_1298,Lake Nipigon,1
+1995_1303,Lake Nipigon,1
+1995_1304,Lake Wabigoon,2
+1995_1315,Pigeon River,3
+1995_1317,Pigeon River,3
+1995_1319,Lake Wabigoon,2
+1995_1322,Lake Wabigoon,2
+1995_1324,Pigeon River,3
+1995_1327,Pigeon River,3
+1995_1337,Pigeon River,3
+1995_1397,Pigeon River,3
+1995_1397,Lake Nipigon,1
+1995_1398,Lake Nipigon,1
+1995_1399,Lake Wabigoon,2
+1995_1400,Big Trout Lake,6
+1995_1403,Big Trout Lake,6
+1995_1665,Lake Nipigon,1
+1995_1673,Lake Wabigoon,2
+1993_8,Lake St. Joseph,4
+1993_10,Lake St. Joseph,4
+1993_248,Agassiz Clay Plain,5
+1992_6,Lake Nipigon,1
+1991_9,Agassiz Clay Plain,5
+1991_23,Lake Nipigon,1
+1991_26,Big Trout Lake,6
+1991_63,Lake St. Joseph,4
+1991_440,Big Trout Lake,6
+1990_1,Agassiz Clay Plain,5
+1990_11,Lake St. Joseph,4
+1989_795,Lake Wabigoon,2
+1989_928,Big Trout Lake,6
+1989_965,Big Trout Lake,6
+1989_1039,Big Trout Lake,6
+1989_1042,Agassiz Clay Plain,5
+1989_1161,Lake St. Joseph,4
+1989_1166,Big Trout Lake,6
+1989_1190,Big Trout Lake,6
+1989_1276,Lake St. Joseph,4
+1989_1712,Lake Nipigon,1
+1988_7,Agassiz Clay Plain,5
+1988_9,Lake Nipigon,1
+1988_16,Lake Nipigon,1
+1988_19,Lake Nipigon,1
+1988_20,Lake Nipigon,1
+1988_21,Lake Wabigoon,2
+1988_22,Lake Nipigon,1
+1988_26,Lake Wabigoon,2
+1988_30,Lake Wabigoon,2
+1988_41,Lake Wabigoon,2
+1988_47,Big Trout Lake,6
+1988_60,Lake St. Joseph,4
+1988_65,Lake St. Joseph,4
+1987_1,Agassiz Clay Plain,5
+1987_2,Agassiz Clay Plain,5
+1987_3,Agassiz Clay Plain,5
+1987_5,Agassiz Clay Plain,5
+1987_8,Pigeon River,3
+1987_8,Lake Nipigon,1
+1987_12,Lake Nipigon,1
+1987_14,Lake Wabigoon,2
+1987_17,Lake Nipigon,1
+1987_29,Big Trout Lake,6
+1987_47,Lake St. Joseph,4
+1986_11,Lake Wabigoon,2
+1986_17,Big Trout Lake,6
+1986_261,Lake Nipigon,1

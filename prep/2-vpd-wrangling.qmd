@@ -1,0 +1,89 @@
+---
+title: "VPD Data Wrangling"
+author: "Jack A. Goldman"
+date: "2025-12-26"
+format: html
+---
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(tidyverse)
+library(readr)
+```
+
+# Purpose
+
+Making a VPD dataframe that is ready for analysis.
+
+# Read in data from /cleaned and aou_fire_ecoregion.csv
+```{r}
+fire_info <- readRDS("data/cleaned/fire_info_cleaned.rds")
+vpd_wide <- readRDS("data/cleaned/vpd_30_wide.rds")
+ecoregion <- readRDS("data/cleaned/ecoregion_cleaned.rds")
+rbr <- readRDS("data/cleaned/rbr_cleaned.rds")
+vpd_ma <- readRDS("data/cleaned/vpd_ma_30.rds")
+landcover <- readRDS("data/cleaned/landcover_cleaned.rds")
+fwi <- read_csv('data/fwi_90th_duration_by_fire_full.csv')
+```
+
+
+# make a dataframe 
+
+Using vpd_ma as the base, join fire_info, ecoregion_data, rbr, landcover but only keep rows that match the GIDs in vpd_ma
+
+```{r}
+vpd_final <- vpd_ma |> 
+    left_join(fire_info, by = "GID") |> 
+    left_join(rbr, by = "GID") |> 
+    left_join(landcover, by = "GID") |> 
+    left_join(fwi, by = "GID") |>
+    left_join(ecoregion, by = "GID") |> drop_na() |> 
+    arrange(GID)
+
+```
+
+# make a matrix for distributed lag model
+
+Turn into a matrix for distributed lag model
+vpd_matix: a matrix with on row per fire and columns for lags, columns ordered from 1=0 to 1=L (L days before). Dimensions: n_fires x (Lags)
+
+```{r}
+vpd_wide <- vpd_wide %>% arrange(GID) # make sure the GIDs are in the same order
+vpd_matrix <- as.matrix(vpd_wide %>% select(-GID))
+head(vpd_matrix)
+```
+
+
+Get nrow and ncol of vpd_matrix to create lag matrix L
+```{r}
+n <- nrow(vpd_final)
+L <- ncol(vpd_matrix)
+
+# create matrix L based on nrow and ncol of vpd_matrix where each column value is the lag index
+L <- matrix(NA, nrow = n, ncol = L)
+for (i in 1:ncol(L)) {
+  L[, i] = i
+}
+head(L)
+```
+
+Create final dataframe for distributed lag model
+
+```{r}
+vpd_df = data.frame(vpd_final) # data with covariates
+vpd_df$vpd = vpd_matrix
+vpd_df$L = L
+```
+
+
+check str and save
+```{r}
+str(vpd_df)
+```
+
+
+
+```{r}
+saveRDS(vpd_df, "data/analysis_ready/vpd_lagged_data.rds")
+```

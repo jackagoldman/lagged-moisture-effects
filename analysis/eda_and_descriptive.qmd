@@ -1,0 +1,53 @@
+---
+title: "Exploratory Data Analysis and Descriptive Statistics"
+author: "Jack A. Goldman"
+date: "2025-12-26"
+format: html
+---
+
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(ggplot2)
+library(viridis)
+library(cowplot)
+library(patchwork)
+library(readr)
+library(mgcv)
+library(dlnm)
+```
+
+
+# Read in data
+
+```{r}
+vpd_data <- readRDS("data/analysis_ready/vpd_lagged_data.rds")
+```
+
+
+# correlation between continuous variables except vpd and L
+
+```{r}
+str(vpd_data)
+cor_matrix <- vpd_data |> 
+    select(-starts_with("vpd_"), -L) |> 
+    #select only numeric columns
+    select(where(is.numeric)) |>
+    cor()
+
+# apply a heatmap to visualize the correlation matrix
+library(reshape2)
+cor_melt <- melt(cor_matrix)
+ggplot(data = cor_melt, aes(x=Var1, y=Var2, fill=value)) +
+    geom_tile() +
+    scale_fill_viridis(option = "C", limits = c(-1, 1)) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+    labs(title = "Correlation Matrix Heatmap", x = "", y = "", fill = "Correlation")
+
+# find instances where correlation is > 0.5 or < -0.5
+high_cor <- cor_melt |> 
+    filter(value > 0.5 | value < -0.5 & Var1 != Var2)
+high_cor
+```

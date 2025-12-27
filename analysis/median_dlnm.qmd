@@ -1,0 +1,95 @@
+---
+title: "Median DLNM Analysis"
+author: "Jack A. Goldman"
+date: "2025-12-26"
+format: html
+---
+
+This use mgcv and dlnm packages to fit a distributed lag model for VPD and fire severity (RBR median)
+We use a matrix of VPD values for each fire event (GID) with columns representing lags from 1 to 30 days before fire start date
+
+# Objective
+- Short-term increases in VPD (drying conditions) in the days leading up to fire ignition will lead to higher burn severity (RBR median)
+- Long-term VPD trends (e.g., seasonal averages) may have less influence on burn severity compared to short-term fluctuations by decreasing fuel abundance
+
+- lagged effects of VPD on burn severity will be non-linear, with immediate effects being stronger than delayed effects
+- lagged effects of  CMI on burn severity will be non-linear, with immediate effects being stronger than delayed effects
+
+
+The goal is to model the effects of short-term and long-term moisture conditions on median and extreme burn severity as having a non-linear, lagged effect and compare whether short-term or long-term moisture conditions better explain burn severity patterns.
+
+# Hypotheses
+
+To achieve this goal, I'll test 4 hypotheses for short and long-term moisture conditions (VPD and CMI (maybe RH and FWI?)) on both median and extreme (90th percentile) burn severity using a series of GAMs with distributed lag non-linear models (DLNMs) implemented using the `mgcv` and `dlnm` packages in R.
+
+1.  Is *smooth* function necessary?
+
+    -   H~A~: Full model including crossbasis smooth for moisture conditions over short (30-day) or long (5 year lag).
+    -   H~0~: replace crossbasis term with mean of moisture conditions over lag period as a parametric (not smoothed) term.
+
+2.  Is there an effect of moisture condition?
+
+    -   H~A~: Same as H~A~ from \#1 above
+    -   H~0~: Remove the moisture condition term entirely
+
+3.  Is there a single lagged effect?
+
+    -   H~A~: Use the moisture condition at a lag with maximum effect suggested by the DLNM (e.g. VPD day before fire) as a parameteric (not smoothed) term.
+    -   H~0~: Same as H~0~ from \#2 above
+
+4. Is short-term or long-term moisture conditions more important? (anova between best models from short-term and long-term moisture conditions)
+
+    -   H~A~: Full model including crossbasis smooth for short-term (30-day) moisture conditions.
+    -   H~0~: Full model including crossbasis smooth for long-term (5 year lag) moisture conditions.
+
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(ggplot2)
+library(viridis)
+library(cowplot)
+library(patchwork)
+library(readr)
+library(mgcv)
+library(dlnm)
+```
+
+
+# Read in data
+
+```{r}
+vpd_data <- readRDS("data/analysis_ready/vpd_lagged_data.rds")
+```
+
+
+# Build Full Model
+
+```{r}
+m_vpd_median <- gam(median ~ 
+        #cross-basis function for vpd
+        s(vpd, L,
+          bs = "cb",
+          k = c(10, 30),
+          xt = list(bs = "cr")
+          ) + pct_conf + #co-variates
+        s(ecoregion_lvl, bs = "re") + 
+        s(year, bs = "re"), #random effects
+      data = vpd_data,
+      family = gaussian(link = "identity"),
+      method = "REML")
+
+```
+
+```{r}
+sc <- smoothCon(s(vpd, L, bs = "cb", k = c(10, 30), xt = list(bs = "cr")),
+                data = vpd_data, knots = NULL)
+sc
+```
+
+# Inspect GAMs
+
+```{r}
+gam.check(m_vpd_median)
+summary(m_vpd_median)
+```
