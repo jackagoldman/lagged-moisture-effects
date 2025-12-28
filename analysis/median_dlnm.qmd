@@ -20,12 +20,12 @@ The goal is to model the effects of short-term and long-term moisture conditions
 
 # Hypotheses
 
-To achieve this goal, I'll test 4 hypotheses for short and long-term moisture conditions (VPD and CMI (maybe RH and FWI?)) on both median and extreme (90th percentile) burn severity using a series of GAMs with distributed lag non-linear models (DLNMs) implemented using the `mgcv` and `dlnm` packages in R.
+To achieve this goal, I'll test 4 hypotheses for short and long-term moisture conditions (VPD and CMI (maybe RH and FWI?)) on both median and extreme (90th percentile) burn severity using a series of GAMs with distributed lag non-linear models implemented using the `mgcv`
 
 1.  Is *smooth* function necessary?
 
-    -   H~A~: Full model including crossbasis smooth for moisture conditions over short (30-day) or long (5 year lag).
-    -   H~0~: replace crossbasis term with mean of moisture conditions over lag period as a parametric (not smoothed) term.
+    -   H~A~: Full model including distributed lag smooth for moisture conditions over short (30-day) or long (5 year lag).
+    -   H~0~: replace smooth term with mean of moisture conditions over lag period as a parametric (not smoothed) term.
 
 2.  Is there an effect of moisture condition?
 
@@ -59,26 +59,237 @@ library(dlnm)
 # Read in data
 
 ```{r}
-vpd_data <- readRDS("data/analysis_ready/vpd_lagged_data.rds")
+moisture_data <- readRDS("data/analysis_ready/moisture_lagged_data.rds")
+```
+
+```{r}
+#are there nas in the data
+sum(is.na(moisture_data))
+```
+
+# Build Full Models
+
+
+# vpd
+```{r}
+m_vpd_median <- bam(median ~ 
+       te(vpd, L, k = c(10,30), by = weights_acp) + # vpd with lag
+       te(vpd, L, k = c(10,30), by = weights_ln) + # vpd with lag
+       te(vpd, L, k = c(10,30), by = weights_btl) + # vpd with lag
+       te(vpd, L, k = c(10,30), by = weights_lsj) + # vpd with lag
+       te(vpd, L, k = c(10,30), by = weights_lw) + # vpd with lag
+       te(vpd, L, k = c(10,30), by = weights_pr) + # vpd with lag
+         pct_conf + season + #co-variates
+        s(ecoregion_lvl, bs = "re") ,
+      data = moisture_data,
+      family = gaussian(link = "identity"),
+      select = TRUE,
+      method = "REML")
+ 
+summary(m_vpd_median)
+  ```
+
+
+# cmi
+```{r}
+
+m_cmi_median <- gam(median ~ 
+       te(cmi_wy, LL, k = c(20 , 5)) + # cmi with 5 year lag
+        pct_conf + season + #co-variates
+        s(ecoregion_lvl, bs = "re") , #random effects
+      data = moisture_data,
+      family = gaussian(link = "identity"),
+      select = TRUE,
+      method = "REML")
+
+summary(m_cmi_median)
 ```
 
 
-# Build Full Model
+```{r}
+AIC(m_full_median, m_vpd_median)
+concurvity(m_vpd_median, full = TRUE)
+
+gratia::draw(m_vpd_median)
+```
+
+
+# VPD model
+
+assess appropriate number of nots and resiadual diagnostics
 
 ```{r}
-m_vpd_median <- gam(median ~ 
-        #cross-basis function for vpd
-        s(vpd, L,
-          bs = "cb",
-          k = c(10, 30),
-          xt = list(bs = "cr")
-          ) + pct_conf + #co-variates
-        s(ecoregion_lvl, bs = "re") + 
-        s(year, bs = "re"), #random effects
-      data = vpd_data,
+gam.check(m_vpd_median)
+```
+
+# h1 is smooth function necessary?
+
+```{r}
+sp_m_vpd_median <- m_vpd_median$sp
+
+m_vpd_median_fixed <- gam(median ~ 
+       vpd_ma_30 + 
+        pct_conf + season + #co-variates
+        s(ecoregion_lvl, bs = "re", sp = sp_m_vpd_median["s(ecoregion_lvl)"]) + 
+        s(year, bs = "re", sp = sp_m_vpd_median["s(year)"]), #random effects
+      data = moisture_data,
       family = gaussian(link = "identity"),
       method = "REML")
+ 
+summary(m_vpd_median_fixed)
+```
 
+```{r}
+anova(m_vpd_median_fixed, m_vpd_median,test = "Chisq")
+
+
+```
+
+Yes, smooth is significantly better than the fixed effect
+
+
+
+
+
+```{r}
+plot_dist_lags = function(model, moisture_data){
+  
+  ecoregions <- levels(moisture_data$ecoregion_lvl)
+  
+  # Loop across ecoregions to create the effect plot dataframe
+  ec_plot_dat <- do.call(rbind, lapply(ecoregions, function(ec){
+    
+    # number of rows (observations) to predict for
+    nrows <- nrow(moisture_data$L)
+    
+    # Build newdata preserving types and factor levels from moisture_data
+    newdata <- list()
+    for(nm in names(moisture_data)){
+      x <- moisture_data[[nm]]
+      if(is.matrix(x)){
+        # create zero matrix with same dims
+        newdata[[nm]] <- matrix(0, nrow = nrows, ncol = ncol(x))
+      } else if(is.factor(x)){
+        # use first factor level as placeholder but keep original levels
+        newdata[[nm]] <- factor(rep(levels(x)[1], nrows), levels = levels(x))
+      } else if(is.character(x)){
+        newdata[[nm]] <- rep(as.character(x[1]), nrows)
+      } else if(is.numeric(x) || is.integer(x)){
+        # use mean as a sensible default instead of 0
+        newdata[[nm]] <- rep(mean(x, na.rm = TRUE), nrows)
+      } else {
+        newdata[[nm]] <- rep(NA, nrows)
+      }
+    }
+    
+    # Ensure L is the lag matrix (keep same dimensions)
+    newdata$L <- moisture_data$L
+    
+    # Set the ecoregion factor to the current ecoregion with original levels
+    if("ecoregion_lvl" %in% names(moisture_data) && is.factor(moisture_data$ecoregion_lvl)){
+      newdata$ecoregion_lvl <- factor(rep(ec, nrows), levels = levels(moisture_data$ecoregion_lvl))
+    } else {
+      newdata$ecoregion_lvl <- rep(ec, nrows)
+    }
+    
+    # Initialize all weights_* columns from moisture_data to zero matrices/vectors
+    weight_names <- grep("^weights_", names(moisture_data), value = TRUE)
+    for(w in weight_names){
+      x <- moisture_data[[w]]
+      if(is.matrix(x)){
+        newdata[[w]] <- matrix(0, nrow = nrows, ncol = ncol(x))
+      } else {
+        newdata[[w]] <- rep(0, nrows)
+      }
+    }
+    # If a weights_<ecoregion> exists, set it to 1 so the by-variable matches the ecoregion
+    target_name <- paste0("weights_", tolower(ec))
+    match_idx <- which(tolower(names(moisture_data)) == target_name)
+    if(length(match_idx) == 1){
+      wname <- names(moisture_data)[match_idx]
+      x <- moisture_data[[wname]]
+      if(is.matrix(x)){
+        newdata[[wname]] <- matrix(1, nrow = nrows, ncol = ncol(x))
+      } else {
+        newdata[[wname]] <- rep(1, nrows)
+      }
+    }
+    
+    # Convert to data.frame; wrap matrix columns with I() to preserve matrix structure
+    newdata_df <- as.data.frame(newdata, stringsAsFactors = FALSE)
+    for(nm in names(newdata)){
+      if(is.matrix(newdata[[nm]])){
+        newdata_df[[nm]] <- I(newdata[[nm]])
+      } else if(nm %in% names(moisture_data) && is.factor(moisture_data[[nm]])){
+        # ensure factor levels match the original
+        newdata_df[[nm]] <- factor(newdata_df[[nm]], levels = levels(moisture_data[[nm]]))
+      } else if(nm %in% names(moisture_data) && is.numeric(moisture_data[[nm]])){
+        newdata_df[[nm]] <- as.numeric(newdata_df[[nm]])
+      }
+    }
+    
+    # Calculate predictions for when predictors are set to defaults to find baseline
+    if(inherits(model, 'mvgam')){
+      preds <- predict(model, newdata = newdata_df, 
+                       type = 'link', process_error = FALSE)
+      if(is.matrix(preds)){
+        preds <- apply(preds, 2, median)
+      }
+    } else {
+      preds <- predict(model, newdata = newdata_df, type = 'link')
+    }
+    
+    offset <- mean(preds)
+    
+    plot_dat <- do.call(rbind, lapply(seq_len(30), function(L){   # <-- changed to 30 lags
+      # Set up vpd matrix across the observed range for this lag
+      vpd_mat <- matrix(0, nrow = nrows, ncol = ncol(moisture_data$L))
+      vpd_vals <- seq(min(moisture_data$vpd, na.rm = TRUE),
+                      max(moisture_data$vpd, na.rm = TRUE),
+                      length.out = nrows)
+      vpd_mat[, L] <- vpd_vals
+      newdata_df$vpd <- I(vpd_mat)
+      
+      # Predict on the link scale and shift by the offset 
+      # so that values are roughly centred at zero
+      if(inherits(model, 'mvgam')){
+        preds <- predict(model, newdata = newdata_df, 
+                         type = 'link', process_error = FALSE)
+        if(is.matrix(preds)){
+          preds <- apply(preds, 2, median)
+        }
+      } else {
+        preds <- predict(model, newdata = newdata_df, type = 'link')
+      }
+      preds <- preds - offset
+      
+      data.frame(lag = L,
+                 preds = preds,
+                 vpd = vpd_vals)
+    }))
+    plot_dat$ecoregions <- ec
+    
+    plot_dat
+  }))
+
+  # Build the facetted distributed lag plot
+  ggplot(data = ec_plot_dat %>%
+           dplyr::mutate(lag = as.factor(lag)),
+         aes(x = vpd, y = preds, 
+             colour = lag, fill = lag)) +
+    facet_wrap(~ ecoregions, scales = 'free') +
+    geom_hline(yintercept = 0) +
+    # Use geom_smooth, though beware these uncertainty
+    # intervals aren't necessarily correct
+    geom_smooth() +
+    scale_fill_viridis(discrete = TRUE) +
+    scale_colour_viridis(discrete = TRUE) +
+    labs(x = 'VPD',
+         y = 'Partial effect')
+  
+}
+
+plot_dist_lags(m_vpd_median, moisture_data)
 ```
 
 ```{r}
@@ -92,4 +303,41 @@ sc
 ```{r}
 gam.check(m_vpd_median)
 summary(m_vpd_median)
+crosspred()
+```
+
+
+
+
+
+```{r}
+
+pred_vpd_fine <- crosspred(
+  "vpd",
+  m_vpd_median,
+  by    = 0.5,   # exposure increments (auto range based on data/cross-basis)
+    # lag increments; finer than daily for smooth plotting
+  cen   = 1.3973  # center at mean vpd
+)
+
+overall_df <- data.frame(
+  vpd   = pred_vpd_fine$predvar,
+      = pred_vpd_fine$allfit,
+  rr_lo = pred_vpd_fine$alllow,
+  rr_hi = pred_vpd_fine$allhigh
+)
+
+ggplot(overall_df, aes(vpd, rr)) +
+  geom_ribbon(aes(ymin = rr_lo, ymax = rr_hi), fill = "#619CFF", alpha = 0.25) +
+  geom_line(color = "#1F78B4", size = 1) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "gray40") +
+  labs(
+    title = "Cumulative (overall) VPD effect across lags",
+    subtitle = "Centered at VPD = 1.3973",
+    x = "VPD", y = "Median Burn Severity"
+  ) +
+  theme_minimal(base_size = 12)
+
+
+
 ```

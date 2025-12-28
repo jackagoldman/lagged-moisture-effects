@@ -25,6 +25,7 @@ rbr <- readRDS("data/cleaned/rbr_cleaned.rds")
 vpd_ma <- readRDS("data/cleaned/vpd_ma_30.rds")
 landcover <- readRDS("data/cleaned/landcover_cleaned.rds")
 fwi <- read_csv('data/fwi_90th_duration_by_fire_full.csv')
+cmi_wide <- readRDS("data/cleaned/cmi_wy_cleaned.rds")
 ```
 
 
@@ -33,7 +34,7 @@ fwi <- read_csv('data/fwi_90th_duration_by_fire_full.csv')
 Using vpd_ma as the base, join fire_info, ecoregion_data, rbr, landcover but only keep rows that match the GIDs in vpd_ma
 
 ```{r}
-vpd_final <- vpd_ma |> 
+moisture_final <- vpd_ma |> 
     left_join(fire_info, by = "GID") |> 
     left_join(rbr, by = "GID") |> 
     left_join(landcover, by = "GID") |> 
@@ -43,10 +44,34 @@ vpd_final <- vpd_ma |>
 
 ```
 
+
 # make a matrix for distributed lag model
 
 Turn into a matrix for distributed lag model
 vpd_matix: a matrix with on row per fire and columns for lags, columns ordered from 1=0 to 1=L (L days before). Dimensions: n_fires x (Lags)
+
+## matrix preparation
+Remove GID in cmi_wide that are not in moisture_final GIDs
+
+```{r}
+cmi_wide <- cmi_wide %>% filter(GID %in% moisture_final$GID)
+nrow(cmi_wide) # missing 9 rows compared to vpd_ma
+```
+
+remove rows in moisture_final that are not in cmi_wide GIDs
+
+```{r}
+moisture_final <- moisture_final %>% filter(GID %in% cmi_wide$GID)
+nrow(moisture_final) # now matches cmi_wide
+```
+
+remove rows in vpd_wide that are not in moisture_final GIDs
+
+```{r}
+vpd_wide <- vpd_wide %>% filter(GID %in% moisture_final$GID)
+nrow(vpd_wide) # now matches moisture_final
+```
+
 
 ```{r}
 vpd_wide <- vpd_wide %>% arrange(GID) # make sure the GIDs are in the same order
@@ -55,9 +80,17 @@ head(vpd_matrix)
 ```
 
 
+```{r}
+cmi_wide <- cmi_wide %>% arrange(GID) # make sure the GIDs are in the same order
+cmi_matrix <- as.matrix(cmi_wide %>% select(-GID))
+head(cmi_matrix)
+```
+
+## vpd_matrix
+
 Get nrow and ncol of vpd_matrix to create lag matrix L
 ```{r}
-n <- nrow(vpd_final)
+n <- nrow(moisture_final)
 L <- ncol(vpd_matrix)
 
 # create matrix L based on nrow and ncol of vpd_matrix where each column value is the lag index
@@ -68,22 +101,79 @@ for (i in 1:ncol(L)) {
 head(L)
 ```
 
-Create final dataframe for distributed lag model
 
+### cmi matrix
+
+Get nrow and ncol of cmd_matrix to create lag matrix L
 ```{r}
-vpd_df = data.frame(vpd_final) # data with covariates
-vpd_df$vpd = vpd_matrix
-vpd_df$L = L
+n <- nrow(moisture_final)
+LL <- ncol(cmi_matrix)
+
+# create matrix L based on nrow and ncol of vpd_matrix where each column value is the lag index
+LL <- matrix(NA, nrow = n, ncol = LL)
+for (i in 1:ncol(LL)) {
+  LL[, i] = i
+}
+head(LL)
 ```
 
+
+# Create final dataframe for distributed lag model
+
+## vpd
+```{r}
+moisture_df = data.frame(moisture_final) # data with covariates
+moisture_df$vpd = vpd_matrix
+moisture_df$L = L
+```
+
+##cmi
+```{r}
+moisture_df$cmi_wy = cmi_matrix
+moisture_df$LL = LL
+```
 
 check str and save
 ```{r}
-str(vpd_df)
+str(moisture_df)
+```
+
+make sure ecoregion_lvl is a factor and year is a factor and season is a factor
+
+```{r}
+moisture_df$ecoregion_lvl <- as.factor(moisture_df$ecoregion_lvl)
+moisture_df$year <- as.factor(moisture_df$year)
+moisture_df$season <- as.factor(moisture_df$season)
+
+```
+
+concurcity between ecoregion_lvl and lag so we need a hierarchical model with ecoregion as a random effect, to do this we need to creatae weighting matrices for each group level of eacoregion and set all other values to 0
+
+```{r}
+levels(moisture_df$ecoregion_lvl)
+
+weights_acp <- weights_btl <- weights_ln <- weights_lsj <- weights_lw <- weights_pr <- matrix(1, ncol = ncol(moisture_df$L), nrow = nrow(moisture_df$L))
+
+weights_acp[!(moisture_df$ecoregion_lvl == 'ACP'), ] <- 0
+weights_btl[!(moisture_df$ecoregion_lvl == 'BTL'), ] <- 0
+weights_ln[!(moisture_df$ecoregion_lvl == 'LN'), ] <- 0
+weights_lsj[!(moisture_df$ecoregion_lvl == 'LSJ'), ] <- 0
+weights_lw[!(moisture_df$ecoregion_lvl == 'LW'), ] <- 0
+weights_pr[!(moisture_df$ecoregion_lvl == 'PR'), ] <- 0
+
+
+#Adding these weighting matrices to the data list gives us all we need to set up group-level or hierarchical distributed lag terms
+
+moisture_df$weights_acp <- weights_acp
+moisture_df$weights_btl <- weights_btl
+moisture_df$weights_ln <- weights_ln
+moisture_df$weights_lsj <- weights_lsj
+moisture_df$weights_lw <- weights_lw
+moisture_df$weights_pr <- weights_pr
+
 ```
 
 
-
 ```{r}
-saveRDS(vpd_df, "data/analysis_ready/vpd_lagged_data.rds")
+saveRDS(moisture_df, "data/analysis_ready/moisture_lagged_data.rds")
 ```

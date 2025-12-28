@@ -160,5 +160,72 @@ make sure there are no duplicate GIDs in aou_fire_ecoregion.csv, if there are du
 ecoregion_data = read_csv("data/aou_fire_ecoregion.csv") |> 
     distinct(GID, .keep_all = TRUE)
 
+# where ecoregion = 1 set to LN
+ecoregion_data = ecoregion_data |> 
+    mutate(ecoregion_lvl = case_when(
+        ecoregion_lvl == 1 ~ "LN",
+        ecoregion_lvl == 2 ~ "LW",
+        ecoregion_lvl == 3 ~ "PR",
+        ecoregion_lvl == 4 ~ "LSJ",
+        ecoregion_lvl== 5 ~ "ACP",
+        ecoregion_lvl== 6 ~ "BTL"
+    )) |> 
+    select(GID, ecoregion_lvl)
+
 saveRDS(ecoregion_data, "data/cleaned/ecoregion_cleaned.rds")
 ```
+
+
+# cmi data cleaning
+
+Read in cmi data
+
+
+```{r}
+cmi_data = read_csv("data/cmi_hogg_water_year_anomaly.csv")
+
+```
+
+
+```{r}
+str(cmi_data)
+```
+
+Join fire info by GID
+```{r}
+cmi_data <- cmi_data |> 
+    left_join(fire_info |> select(GID, YEAR), by = "GID") 
+```
+
+For each fire, remove water year rows with match YEAR (fire year) so that there are only water years before the fire year
+```{r}
+cmi_cleaned <- cmi_data |> 
+    filter(water_year < YEAR) |> 
+    select(GID, water_year, YEAR, avg_cmi_anomaly) |> 
+    rename(cmi_wy_anom = avg_cmi_anomaly)
+```
+
+If water year is YEAR - 1 then lag = 1, if water year is YEAR - 2 then lag = 2, etc.
+```{r}
+cmi_cleaned <- cmi_cleaned |> 
+    mutate(lag = YEAR - water_year) |> 
+    select(-YEAR) |>  
+    filter(lag <= 5) |> # keep only lags 1-5
+    select(-c(water_year)) |> 
+    arrange(GID, lag)
+```
+
+Pivot wider so that each column is cmi lag 1 to lag 5
+```{r}
+cmi_wide <- cmi_cleaned |> 
+    pivot_wider(names_from = lag, values_from = cmi_wy_anom, names_prefix = "cmi_wy_") |> 
+    drop_na() |> 
+    arrange(GID)
+```
+
+
+```{r}
+saveRDS(cmi_wide, "data/cleaned/cmi_wy_cleaned.rds")
+```
+
+
