@@ -18,16 +18,41 @@ Making a VPD dataframe that is ready for analysis.
 
 # Read in data from /cleaned and aou_fire_ecoregion.csv
 ```{r}
-fire_info <- readRDS("data/cleaned/fire_info_cleaned.rds")
-vpd_wide <- readRDS("data/cleaned/vpd_30_wide.rds")
-ecoregion <- readRDS("data/cleaned/ecoregion_cleaned.rds")
-rbr <- readRDS("data/cleaned/rbr_cleaned.rds")
-vpd_ma <- readRDS("data/cleaned/vpd_ma_30.rds")
-landcover <- readRDS("data/cleaned/landcover_cleaned.rds")
-fwi <- read_csv('data/fwi_90th_duration_by_fire_full.csv')
-cmi_wide <- readRDS("data/cleaned/cmi_wy_cleaned.rds")
+fire_info <- readRDS(here("data", "cleaned", "fire_info_cleaned.rds"))
+vpd_wide <- readRDS(here("data", "cleaned","vpd_30_wide.rds"))
+rbr <- readRDS(here("data", "cleaned","rbr_cleaned.rds"))
+vpd_ma <- readRDS(here("data", "cleaned","vpd_ma_30.rds"))
+landcover <- readRDS(here("data", "cleaned","landcover_cleaned.rds"))
+fwi <- read_csv(here("data", 'fwi_90th_duration_by_fire_full.csv'))
+cmi_wide <- readRDS(here("data", "cleaned","cmi_wy_cleaned.rds"))
 ```
 
+# round all column to .00
+```{r}
+round_columns <- function(df) {
+  df[] <- lapply(df, function(x) if(is.numeric(x)) round(x, 2) else x)
+  return(df)
+}
+vpd_wide <- round_columns(vpd_wide)
+cmi_wide <- round_columns(cmi_wide)
+vpd_ma <- round_columns(vpd_ma)
+landcover <- round_columns(landcover)
+fwi <- round_columns(fwi)
+```
+
+# scale predictors 
+subtract mean and divide by sd*2 (Gelman 2008) for vpd_wide columns, fwi, cmi_wide, vpd_ma and landcover
+```{r}
+scale_columns <- function(df, columns) {
+  df[columns] <- lapply(df[columns], function(x) (x - mean(x, na.rm = TRUE)) / (2 * sd(x, na.rm = TRUE))) 
+  return(df)
+}
+vpd_wide <- scale_columns(vpd_wide, colnames(vpd_wide)[-1])
+cmi_wide <- scale_columns(cmi_wide, colnames(cmi_wide)[-1])
+vpd_ma <- scale_columns(vpd_ma, colnames(vpd_ma)[-1])
+landcover <- scale_columns(landcover, colnames(landcover)[-1])
+fwi <- scale_columns(fwi, c("fwi_90th"))
+```
 
 # make a dataframe 
 
@@ -35,11 +60,10 @@ Using vpd_ma as the base, join fire_info, ecoregion_data, rbr, landcover but onl
 
 ```{r}
 moisture_final <- vpd_ma |> 
-    left_join(fire_info, by = "GID") |> 
+    left_join(fire_info |> select(c(GID, year, start_date, fire_size_ha, lat, lon, month, season)), by = "GID") |> 
     left_join(rbr, by = "GID") |> 
     left_join(landcover, by = "GID") |> 
-    left_join(fwi, by = "GID") |>
-    left_join(ecoregion, by = "GID") |> drop_na() |> 
+    left_join(fwi, by = "GID")  |> drop_na() |> 
     arrange(GID)
 
 ```
@@ -86,11 +110,31 @@ cmi_matrix <- as.matrix(cmi_wide %>% select(-GID))
 head(cmi_matrix)
 ```
 
+get gids from cmi and vpd wide dataframes to make sure they match moisture_final GIDs
+```{r}
+vpd_gids = unique(vpd_wide$GID)
+cmi_gids = unique(cmi_wide$GID)
+length(vpd_gids)
+length(cmi_gids) # 1212
+moisture_gids = unique(moisture_final$GID)
+length(moisture_gids)
+all(vpd_gids == moisture_gids) # TRUE
+all(cmi_gids == moisture_gids) # TRUE
+
+# remove gids in moisture_final that are not in both vpd_gids and cmi_gids
+moisture_final <- moisture_final %>% filter(GID %in% vpd_gids | GID %in% cmi_gids)
+nrow(moisture_final) #
+ # remove duplicate GIDs if any in moisture final
+moisture_final <- moisture_final %>% distinct(GID, .keep_all = TRUE)
+nrow(moisture_final) # should be 1088
+```
+
+
 ## vpd_matrix
 
 Get nrow and ncol of vpd_matrix to create lag matrix L
 ```{r}
-n <- nrow(moisture_final)
+n <- nrow(vpd_matrix)
 L <- ncol(vpd_matrix)
 
 # create matrix L based on nrow and ncol of vpd_matrix where each column value is the lag index
@@ -120,10 +164,11 @@ head(LL)
 
 # Create final dataframe for distributed lag model
 
+
 ## vpd
 ```{r}
 moisture_df = data.frame(moisture_final) # data with covariates
-moisture_df$vpd = vpd_matrix
+moisture_df$vpd <- vpd_matrix
 moisture_df$L = L
 ```
 
@@ -141,13 +186,28 @@ str(moisture_df)
 make sure ecoregion_lvl is a factor and year is a factor and season is a factor
 
 ```{r}
-moisture_df$ecoregion_lvl <- as.factor(moisture_df$ecoregion_lvl)
-moisture_df$year <- as.factor(moisture_df$year)
+moisture_df$fyear <- as.factor(moisture_df$year)
 moisture_df$season <- as.factor(moisture_df$season)
 
 ```
 
 concurcity between ecoregion_lvl and lag so we need a hierarchical model with ecoregion as a random effect, to do this we need to creatae weighting matrices for each group level of eacoregion and set all other values to 0
+
+```{r}
+ecoregion <- read_csv(here("data", "bsw_ecoregion_aou_info.csv"))
+
+ecoregion <- ecoregion %>%  filter(GID %in% moisture_df$GID)
+
+# remove duplicates
+ecoregion <- ecoregion %>% distinct(GID, .keep_all = TRUE)
+
+moisture_df <- moisture_df %>% 
+    left_join(ecoregion  %>% select(GID, ecoregion_lvl, AOU), by = "GID")
+
+moisture_df$ecoregion_lvl <- as.factor(moisture_df$ecoregion_lvl)
+
+```
+
 
 ```{r}
 levels(moisture_df$ecoregion_lvl)
@@ -173,7 +233,110 @@ moisture_df$weights_pr <- weights_pr
 
 ```
 
+# weights cmi
+```{r}
+levels(moisture_df$ecoregion_lvl)
+
+weights_acp2 <- weights_btl2 <- weights_ln2 <- weights_lsj2 <- weights_lw2 <- weights_pr2 <- matrix(1, ncol = ncol(moisture_df$LL), nrow = nrow(moisture_df$LL))
+
+weights_acp2[!(moisture_df$ecoregion_lvl == 'ACP'), ] <- 0
+weights_btl2[!(moisture_df$ecoregion_lvl == 'BTL'), ] <- 0
+weights_ln2[!(moisture_df$ecoregion_lvl == 'LN'), ] <- 0
+weights_lsj2[!(moisture_df$ecoregion_lvl == 'LSJ'), ] <- 0
+weights_lw2[!(moisture_df$ecoregion_lvl == 'LW'), ] <- 0
+weights_pr2[!(moisture_df$ecoregion_lvl == 'PR'), ] <- 0
+
+
+#Adding these weighting matrices to the data list gives us all we need to set up group-level or hierarchical distributed lag terms
+
+moisture_df$weights_acp2 <- weights_acp2
+moisture_df$weights_btl2 <- weights_btl2
+moisture_df$weights_ln2 <- weights_ln2
+moisture_df$weights_lsj2 <- weights_lsj2
+moisture_df$weights_lw2 <- weights_lw2
+moisture_df$weights_pr2 <- weights_pr2
+```
+
+
+# ndvi, EVI, ndmi
 
 ```{r}
-saveRDS(moisture_df, "data/analysis_ready/moisture_lagged_data.rds")
+ndvi_data <- read_csv(here("data", "bsw_fire_mean_ndvi.csv"))
+ndmi <- read_csv(here("data", "bsw_ndmi_pre_fire_stats.csv"))
+evi <- read_csv(here("data", "fire_evi_stats.csv"))
 ```
+
+scale using function
+
+```{r}
+ndvi_data <- scale_columns(ndvi_data, c("mean_ndvi"))
+ndmi <- scale_columns(ndmi, c("mean_ndmi"))
+evi <- scale_columns(evi, c("mean_evi"))
+```
+
+```{r}
+ndvi_data <- ndvi_data %>% distinct(GID, .keep_all = TRUE)
+ndmi <- ndmi %>% distinct(GID, .keep_all = TRUE)
+evi <- evi %>% distinct(GID, .keep_all = TRUE)
+
+
+```
+
+```{r}
+#left join to moisture_df by GID
+moisture_df <- moisture_df %>% left_join(ndvi_data %>% select(GID, mean_ndvi), by = "GID")
+moisture_df <- moisture_df %>% left_join(ndmi %>% select(GID, mean_ndmi), by = "GID")
+moisture_df <- moisture_df %>% left_join(evi %>% select(GID, mean_evi), by = "GID")
+```
+
+# fire size class
+
+small: fire_size_ha <= 500ha
+medium: 500ha < fire_size_ha <= 10000ha
+large: fire_size_ha > 10000ha
+
+```{r}
+moisture_df <- moisture_df %>% 
+    mutate(fire_size_class = case_when(
+        fire_size_ha <= 500 ~ "small",
+        fire_size_ha > 500 & fire_size_ha <= 10000 ~ "medium",
+        fire_size_ha > 10000 ~ "large"
+    ))
+
+moisture_df$fire_size_class <- as.factor(moisture_df$fire_size_class)
+
+# find duplicate gids
+nrow(moisture_df)
+n_distinct(moisture_df$GID)
+```
+
+
+# join cmi ma data to moisture_df
+
+```{r}
+cmi_ma <- readRDS(here("data", "cleaned","cmi_wy_ma_5.rds"))
+
+# scale using function
+cmi_ma <- scale_columns(cmi_ma, c("cmi_wy_ma_5"))
+
+
+cmi_ma <- cmi_ma %>% filter(GID %in% moisture_df$GID)
+nrow(cmi_ma)
+moisture_df <- moisture_df %>% 
+    left_join(cmi_ma %>% select(GID, cmi_wy_ma_5), by = "GID")
+
+```
+
+# get long term cmi
+
+```{r}
+long_term_cmi <- read_csv(here("data", "cleaned","cmi_hogg_36_months_before_fire.csv"))
+# scale using function
+```
+
+```{r}
+saveRDS(moisture_df, here("data", "analysis_ready", "moisture_lagged_data.rds"))
+
+
+```
+

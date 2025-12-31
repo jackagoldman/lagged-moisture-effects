@@ -16,28 +16,57 @@ library(patchwork)
 library(readr)
 library(mgcv)
 library(dlnm)
+library(reshape2)
+library(GGally)
+library(dplyr)
+library(here)
 ```
 
 
 # Read in data
 
 ```{r}
-vpd_data <- readRDS("data/analysis_ready/vpd_lagged_data.rds")
+moisture_data <- readRDS(here("data", "analysis_ready", "moisture_lagged_data.rds"))
 ```
 
+# ecoregion levels
+```{r}
+unique(moisture_data$ecoregion)
+# counts per ecoregion 
+ecoregion_counts <- moisture_data |> 
+    group_by(ecoregion_lvl.y) |> 
+    summarise(count = n())
+```
+
+
+```{r}
+
+cor(moisture_data$pct_up, moisture_data$cmi_wy, use="complete.obs")
+cor(moisture_data$pct_up, moisture_data$vpd,    use="complete.obs")
+
+
+summary(moisture_df$pct_up); summary(moisture_df$pct_up)
+range(moisture_df$pct_up);  range(moisture_df$pct_up)
+
+
+```
 
 # correlation between continuous variables except vpd and L
 
 ```{r}
-str(vpd_data)
-cor_matrix <- vpd_data |> 
-    select(-starts_with("vpd_"), -L) |> 
+colnames(moisture_data)
+cor_matrix <- moisture_data |> 
+    select(c(2:21)) |> # remove first column and 15 to 24th column
     #select only numeric columns
     select(where(is.numeric)) |>
     cor()
 
+# look at correlation between ndmi, evi and ndmi columns
+cor_moist <- moisture_data |> 
+    select(c(mean_ndmi, mean_evi, mean_ndvi)) |> drop_na() |> 
+    cor()
 # apply a heatmap to visualize the correlation matrix
-library(reshape2)
+
 cor_melt <- melt(cor_matrix)
 ggplot(data = cor_melt, aes(x=Var1, y=Var2, fill=value)) +
     geom_tile() +
@@ -49,5 +78,107 @@ ggplot(data = cor_melt, aes(x=Var1, y=Var2, fill=value)) +
 # find instances where correlation is > 0.5 or < -0.5
 high_cor <- cor_melt |> 
     filter(value > 0.5 | value < -0.5 & Var1 != Var2)
-high_cor
+high_cor |> filter(Var1 == "pct_up" | Var2 == "pct_up")
+
+```
+
+
+```{r}
+ggpairs(moisture_data |>  select(c(-1, -15:-24)) |> # remove first column and 15 to 24th column
+    #select only numeric columns
+    select(where(is.numeric)) )
+```
+
+# out of all variables with grep(90th), plot the relationship with median and pct_90 facet wrap by varable name
+
+```{r}
+moisture_data_long <- moisture_data |> 
+    pivot_longer(cols = contains("90th"), names_to = "variable", values_to = "value")
+
+ggplot(moisture_data_long, aes(x = value, y = median)) +
+    geom_point(alpha = 0.5) +
+    theme_minimal() +
+    facet_wrap(~ variable, scales = "free_x") +
+    labs(title = "Relationship with FWI duration", x = "Value", y = "Median") +
+    scale_color_viridis(discrete = TRUE)
+
+```
+
+
+Get number of fires per year and make a histogram
+
+
+```{r}
+fires_per_year <- moisture_data |> 
+    group_by(year) |> 
+    summarise(num_fires = n())
+
+print(fires_per_year, n = Inf)
+
+ggplot(fires_per_year, aes(x = year, y = num_fires)) +
+    geom_bar(stat = "identity", fill = "steelblue") +
+    theme_minimal() +
+    labs(title = "Number of Fires per Year", x = "Year", y = "Number of Fires")
+```
+
+What is the fire size in year == 2022
+```{r}
+year_2022 <- moisture_data |> 
+    filter(year == 2022)
+summary(year_2022$fire_size)
+
+```
+
+how many fires per season
+
+```{r}
+seaosn_summary <- moisture_data |> 
+    group_by(season) |> 
+    summarise(num_fires = n())
+```
+
+Because it is heavily skewed to summer fires (1032 vs 56), we will just include summer fires (after july 1)
+
+
+# fire size distribution 
+```{r}
+# how many fires with fire_size_ha > 200
+mini_fires <- moisture_data |> 
+    filter(fire_size_ha < 200)
+nrow(mini_fires)
+
+# small (as per stocks)
+small_fires <- moisture_data |> 
+    filter(fire_size_ha >= 200 & fire_size_ha < 500)
+nrow(small_fires)
+
+# medium (as per stocks)
+medium_fires <- moisture_data |> 
+    filter(fire_size_ha >= 500 & fire_size_ha < 10000)
+nrow(medium_fires)
+
+# large (as per stocks)
+large_fires <- moisture_data |> 
+    filter(fire_size_ha >= 10000)
+nrow(large_fires)
+
+```
+
+
+```{r}
+#plot median by mean evi using a loess smoother
+ggplot(moisture_data, aes(x = mean_ndmi, y = pct_90)) +
+    geom_point(alpha = 0.5) +
+    geom_smooth(method = "loess", color = "blue") +
+    theme_minimal() +
+    labs(title = "Median vs Mean EVI", x = "Mean EVI", y = "Median")
+```
+
+
+```{r}
+# how many fires inside vs outside aou
+aou_summary <- moisture_data |> 
+    group_by(aou) |> 
+    summarise(num_fires = n())
+print(aou_summary)
 ```

@@ -12,10 +12,10 @@ library(dplyr)
 library(tidyverse)
 library(readr)
 library(zoo)
+library(here)
 
 # load fire information
-fire_info <- read_csv("data/fire_information.csv") |> 
-        filter(!coalesce(PRESCRIBED, FALSE))  # remove fires where PRESCRIBED == TRUE
+fire_info <- read_csv(here("data", "bsw_fire_information.csv")) 
 ```
 
 
@@ -26,25 +26,33 @@ The purpose of this script is to clean and preprocess the raw dataset for furthe
 # VPD data cleaning for lagged analysis
 ```{r}
 # Load the raw dataset
-vpd_data <- read_csv("data/vpd_weather_daily_processed_v2.csv")
+vpd_data <- read_csv(here("data", "bsw_daily_prefire_vpd.csv"))
 # Inspect the data
 head(vpd_data)
 str(vpd_data)
 ```
 
-
-For each GID filter date so that we only have dates within 30 days before fire start date (fire starte date is the Start_Date column in fire_info) and add column lag that is 1-30 for days before fire start date
+Filter fire info to only include GIDs that are in vpd_data
 
 ```{r}
-vpd_30 = vpd_data |> 
-    left_join(fire_info |> select(GID, Start_Date), by = "GID") |> 
+fire_info_filtered <- fire_info |> 
+    filter(GID %in% unique(vpd_data$GID))
+
+```
+
+For each GID filter date so that we only have dates within 30 days before fire start date (fire starte date is the start_date column in fire_info) and add column lag that is 1-30 for days before fire start date
+
+
+```{r}
+vpd_30 <- vpd_data |> 
+    left_join(fire_info |> select(GID, start_date), by = "GID") |> 
     mutate(
         date = as.Date(date),
-        Start_Date = as.Date(Start_Date)
+        start_date = as.Date(start_date)
     ) |> 
-    filter(date >= (Start_Date - 30) & date < Start_Date) |>  # keep 1–30 days before start
-    mutate(lag = as.integer(Start_Date - date)) |>            # lag = 1..30
-    select(-Start_Date)
+    filter(date >= (start_date - 30) & date < start_date) |>  # keep 1–30 days before start
+    mutate(lag = as.integer(start_date - date)) |>            # lag = 1..30
+    select(-start_date)
 
 ```
 
@@ -54,6 +62,7 @@ Currently in long format, need to convert to wide format with each column as vpd
 ```{r}
 vpd_wide = vpd_30 %>%
     select(GID, lag, vpd) %>%
+    distinct(GID, lag, .keep_all = TRUE) %>%
     arrange(lag) %>%
     pivot_wider(names_from = lag, values_from = vpd, names_prefix = "vpd_") %>%
     drop_na() |> 
@@ -65,21 +74,21 @@ nrow(vpd_wide)
 
 Save vpd_wide as vpd_30_wide.csv
 ```{r}
-saveRDS(vpd_wide, "data/cleaned/vpd_30_wide.rds")
+saveRDS(vpd_wide, here("data", "cleaned", "vpd_30_wide.rds"))
 ```
 
 # vpd data cleaning for moving average over 30 days
 ```{r}
 
 vpd_ma_30 = vpd_data |> 
-    left_join(fire_info |> select(GID, Start_Date), by = "GID") |> 
+    left_join(fire_info |> select(GID, start_date), by = "GID") |> 
     mutate(
         date = as.Date(date),
-        Start_Date = as.Date(Start_Date)
+        start_date = as.Date(start_date)
     ) |> 
     arrange(GID, date) |> 
     group_by(GID) |> 
-    filter(date >= (Start_Date - 30) & date < Start_Date) |> 
+    filter(date >= (start_date - 30) & date < start_date) |> 
     mutate(vpd_ma_30 = zoo::rollapply(vpd, width = 30, FUN = function(x) mean(x, na.rm = TRUE), fill = NA, align = "right")) |> 
     summarize(
         vpd_ma_30 = { tmp <- na.omit(vpd_ma_30); if (length(tmp)) tmp[length(tmp)] else NA_real_ },
@@ -91,14 +100,14 @@ vpd_ma_30 = vpd_data |>
 Save vpd_ma_30 
 
 ```{r}
-saveRDS(vpd_ma_30, "data/cleaned/vpd_ma_30.rds")
+saveRDS(vpd_ma_30, here("data", "cleaned","vpd_ma_30.rds"))
 ```
 
  # RBR data cleaning
  Load RBR zonal stats data and select only GID, median, and 90th percentile
 
  ```{r}
-rbr_data = read_csv("data/batch_rbr_w_offset_zonal_stats.csv") |> 
+rbr_data = read_csv(here("data", "batch_rbr_w_offset_zonal_stats.csv")) |> 
     select(GID, median, percentile_90)  |> 
     rename(pct_90 = percentile_90) 
 
@@ -106,14 +115,14 @@ rbr_data = read_csv("data/batch_rbr_w_offset_zonal_stats.csv") |>
 
  Save cleaned RBR data
  ```{r}
-saveRDS(rbr_data, "data/cleaned/rbr_cleaned.rds")
+saveRDS(rbr_data, here("data", "cleaned/rbr_cleaned.rds"))
  ```
 
 # Landcover cleaning
 
 
 ```{r}
-landcover_data = read_csv("data/fire_landcover_pct_v1.csv") 
+landcover_data = read_csv(here("data", "fire_landcover_pct_v1.csv")) 
 
 head(landcover_data)
 
@@ -123,17 +132,17 @@ landcover_cleaned = landcover_data |>
            pct_up = percent_upland, 
            pct_wet = percent_wetland)
 
-saveRDS(landcover_cleaned, "data/cleaned/landcover_cleaned.rds")
+saveRDS(landcover_cleaned, here("data", "cleaned", "landcover_cleaned.rds"))
 ```
 
 # fire information cleaning
 
 ```{r}
 fire_info_cleaned = fire_info |> 
-        select(GID, YEAR, POLY_HA, Start_Date) |> 
-        rename(fire_size_ha = POLY_HA, 
+        select(GID, YEAR, start_date, ecoregion, ecoregion_lvl, size_ha, lat, lon) |> 
+        rename(fire_size_ha = size_ha, 
                year = YEAR, 
-               start_date = Start_Date) |> 
+               start_date = start_date) |> 
         mutate(month = as.integer(format(as.Date(start_date), "%m")))
 
 ```
@@ -142,37 +151,14 @@ if fire burned before june 1 set it as spring fire season else summer fire seaso
 The reason for this is because aspen/deciduous leaf out changes the flammability of the landscape and has been shown to impact fire intensity/severity between spring/summer (Podur and Martell 2009; Parisien et al. 2023)
 
 ```{r}
-fire_info_cleaned = fire_info_cleaned |> 
+fire_info_cleaned <- fire_info_cleaned |> 
     mutate(season = ifelse(month < 6, "spring", "summer"))
 ```
 
 save the file
 
 ```{r}
-saveRDS(fire_info_cleaned, "data/cleaned/fire_info_cleaned.rds")
-```
-
-
-# Ecoregion
-
-make sure there are no duplicate GIDs in aou_fire_ecoregion.csv, if there are duplicates, keep the first one and drop the rest
-```{r}
-ecoregion_data = read_csv("data/aou_fire_ecoregion.csv") |> 
-    distinct(GID, .keep_all = TRUE)
-
-# where ecoregion = 1 set to LN
-ecoregion_data = ecoregion_data |> 
-    mutate(ecoregion_lvl = case_when(
-        ecoregion_lvl == 1 ~ "LN",
-        ecoregion_lvl == 2 ~ "LW",
-        ecoregion_lvl == 3 ~ "PR",
-        ecoregion_lvl == 4 ~ "LSJ",
-        ecoregion_lvl== 5 ~ "ACP",
-        ecoregion_lvl== 6 ~ "BTL"
-    )) |> 
-    select(GID, ecoregion_lvl)
-
-saveRDS(ecoregion_data, "data/cleaned/ecoregion_cleaned.rds")
+saveRDS(fire_info_cleaned, here("data", "cleaned", "fire_info_cleaned.rds"))
 ```
 
 
@@ -182,7 +168,7 @@ Read in cmi data
 
 
 ```{r}
-cmi_data = read_csv("data/cmi_hogg_water_year_anomaly.csv")
+cmi_data = read_csv(here("data", "cmi_hogg_water_year_anomaly.csv"))
 
 ```
 
@@ -218,14 +204,38 @@ cmi_cleaned <- cmi_cleaned |>
 Pivot wider so that each column is cmi lag 1 to lag 5
 ```{r}
 cmi_wide <- cmi_cleaned |> 
+    distinct(GID, lag, .keep_all = TRUE) %>%
     pivot_wider(names_from = lag, values_from = cmi_wy_anom, names_prefix = "cmi_wy_") |> 
     drop_na() |> 
     arrange(GID)
 ```
 
+# calculate a moving average of cmi_wy_1 to cmi_wy_5 and add as a new column cmi_wy_ma_5 using zoo::rollapply using cmi_cleaned
+```{r}
+cmi_ma <- cmi_cleaned |> 
+    group_by(GID) |> 
+    arrange(lag) |> 
+    summarize(
+        cmi_wy_ma_5 = { tmp <- zoo::rollapply(cmi_wy_anom, width = 5, FUN = function(x) mean(x, na.rm = TRUE), fill = NA, align = "right"); if (length(na.omit(tmp))) na.omit(tmp)[length(na.omit(tmp))] else NA_real_ },
+        .groups = "drop"
+    ) |> 
+    drop_na()
+```
 
+# save cmi_wide joined 
 ```{r}
 saveRDS(cmi_wide, "data/cleaned/cmi_wy_cleaned.rds")
 ```
 
 
+# save cmi_ma
+```{r}
+saveRDS(cmi_ma, here("data", "cleaned","cmi_wy_ma_5.rds"))
+```
+
+
+# CMI 36
+
+```{r}
+long_term_cmi <- read_csv(here("data", "cleaned","cmi_hogg_36_months_before_fire.csv"))
+```

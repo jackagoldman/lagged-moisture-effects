@@ -1,0 +1,414 @@
+
+```{r}
+check_res_edf <- function(model){
+    res <- residuals(model)
+    mgcv::bam(res ~ te(vpd, L, k = c(10, 30), bs = "cs", by = weights_acp) + # vpd with lag
+       te(vpd, L, k = c(10, 30), bs = "cs",by = weights_ln) + # vpd with lag
+       te(vpd, L, k = c(10, 30), bs = "cs",by = weights_btl) + # vpd with lag
+       te(vpd, L, k = c(10, 30), bs = "cs",by = weights_lsj) + # vpd with lag
+       te(vpd, L, k = c(10, 30), bs = "cs",by = weights_lw) + # vpd with lag
+       te(vpd, L, k = c(10, 30), bs = "cs",by = weights_pr), 
+    gamma = 1.4, 
+    data = model.frame(model)) |> 
+        gratia::edf() |> 
+        dplyr::mutate(edf = round(edf, 1))}
+
+check_res_edf(m_vpd_median)
+```
+
+
+
+```{r}
+# ...existing code...
+my_eval_smooth <- function(model,
+                           smooth = "te(vpd,L)",
+                           x = "vpd",
+                           y = "L",
+                           n = 100,
+                           dist = 0.1,
+                           ...) {
+  # inverse link
+  linkinv <- model$family$linkinv
+
+  # observed x/y values from model frame
+  mf <- model.frame(model)
+  x_vals <- mf[[x]]
+  y_vals <- mf[[y]]
+
+  # construct grid and mask (.too_far) for a single surface
+  x_seq <- seq(min(x_vals, na.rm = TRUE), max(x_vals, na.rm = TRUE), length.out = n)
+  y_seq <- seq(min(y_vals, na.rm = TRUE), max(y_vals, na.rm = TRUE), length.out = n)
+  grd <- expand.grid(x = x_seq, y = y_seq)
+  names(grd) <- c(x, y)                 # name to match estimates' columns
+  tf_mask <- mgcv::exclude.too.far(grd[[x]], grd[[y]], x_vals, y_vals, dist = dist)
+  grid_tbl <- tibble::as_tibble(grd)
+  grid_tbl$.too_far <- tf_mask
+
+  # get smooth estimates on an n x n grid (may contain repeated grids for multiple smooths)
+  estimates <- gratia::smooth_estimates(
+    model,
+    smooth = smooth,
+    partial_match = TRUE,
+    unconditional = TRUE,
+    n = n,
+    ...
+  ) |>
+    gratia::add_confint()
+
+  # safe intercept extraction (0 if missing)
+  coefs <- stats::coef(model)
+  intercept_val <- if (length(coefs) >= 1) coefs[1] else 0
+
+  # attach intercept, join mask by x/y, convert back to response scale and return tibble
+  estimates |>
+    tibble::add_column(intercept = intercept_val, .before = 1) |>
+    dplyr::arrange(.data[[y]], .data[[x]]) |>
+    dplyr::left_join(grid_tbl, by = c(x, y)) |>
+    dplyr::mutate(
+      dplyr::across(dplyr::any_of(c("est", "lower_ci", "upper_ci")),
+                    ~ ifelse(.too_far, NA_real_, linkinv(.x + intercept))),
+      intercept = linkinv(intercept)
+    )
+}
+# ...existing code...
+# run
+vpd_lag_smooths <- my_eval_smooth(
+    model = m_vpd_median,
+    smooth = "te(vpd,L)",
+    x = "vpd",
+    y = "L",
+    n = 200,
+    dist = 0.1
+)
+```
+
+
+
+```{r}
+plot_vpd_heatmap <-
+    function(eval_df,
+                     fill_lims,
+                     response_lab,
+                     breaks = seq(0, 36, by = 2),
+                     dist = 0.1,
+                     ci = TRUE) {
+        
+        # expect eval_df like vpd_lag_smooths: columns vpd, L, est, lower_ci, upper_ci, intercept
+        
+        p <-
+            ggplot(eval_df, aes_string(y = "vpd", x = "L", fill = ".estimate")) +
+            geom_raster() +
+            scale_fill_viridis_c(response_lab, option = "viridis", limits = fill_lims) +
+            scale_x_continuous("lag (months before census)",
+                                                 breaks = breaks,
+                                                 expand = c(0, 0)) +
+            scale_y_continuous("VPD", expand = expansion(mult = c(0.025, 0))) +
+            theme_classic()
+        
+        if (ci == TRUE) {
+            # outline areas where 95% CI doesn't overlap intercept
+            mask <-
+                eval_df %>%
+                dplyr::rowwise() %>%
+                dplyr::filter(!between(intercept, .lower_ci, .upper_ci)) %>%
+                dplyr::ungroup()
+            
+            p <-
+                p +
+                geom_tile(data = mask, color = "black", size = 0.75, linejoin = "round") +
+                geom_raster(data = mask)
+        }
+        
+        p + geom_hline(yintercept = 0, color = "grey", linetype = 2)
+    }
+
+
+#
+# runplot
+vpd_lag_heatmap_median <- plot_vpd_heatmap(
+    eval_df = vpd_lag_smooths,
+    fill_lims = c(0, 30),
+    response_lab = "Estimated fire risk"
+)
+```
+
+
+
+```{r}
+#facet wrap by variable name
+
+smooth_df <-  smooth_estimates(m_vpd_median, smooth = "te(vpd,L):weights_acp", n = 100, partial =TRUE, unconditional = TRUE) 
+linkinv <- m_vpd_median$family$linkinv
+
+
+smooth_df <- smooth_estimates(
+  m_vpd_median,
+  smooth = "te(vpd,L):weights_acp",     # include the :weights_* suffix
+  data = data.frame(
+    vpd = seq(min(moisture_data$vpd), max(moisture_data$vpd), length.out = 50),
+    L   = seq(min(moisture_data$L),   max(moisture_data$L),   length.out = 50),
+    weights_acp = median(moisture_data$weights_acp, na.rm = TRUE)
+  ),
+  n = 50,
+  partial = TRUE,
+  unconditional = TRUE
+)
+
+
+
+fv <- fitted_values(m_vpd_median, scale = "response")
+
+
+
+
+    ggplot(fv, aes(x = L, y = vpd, fill = .fitted)) +
+    geom_raster() +
+    facet_wrap(~ ecoregion_lvl) +
+    scale_fill_viridis_c("Estimated fire risk", option = "viridis") +
+    scale_x_continuous("VPD") +
+    scale_y_continuous("Lag (days before fire start)") +
+    theme_classic()
+```
+
+
+```{r}
+
+library(dplyr)
+library(tidyr)
+library(gratia)
+library(ggplot2)
+
+# 1) Choose ranges for vpd and L
+vpd_seq <- seq(min(moisture_data$vpd, na.rm = TRUE),
+               max(moisture_data$vpd, na.rm = TRUE), length.out = 60)
+L_seq   <- seq(min(moisture_data$L,   na.rm = TRUE),
+               max(moisture_data$L,   na.rm = TRUE), length.out = 60)
+
+# 2) Build ecoregion-specific scenarios for the numeric by weights.
+#    Here we take medians of each weight within each ecoregion level.
+eco_wts <- moisture_data %>%
+  group_by(ecoregion_lvl) %>%
+  summarize(
+    weights_acp = median(weights_acp, na.rm = TRUE),
+    weights_ln  = 0,  # turn off other surfaces to isolate ACP
+    weights_btl = 0,
+    weights_lsj = 0,
+    weights_lw  = 0,
+    weights_pr  = 0,
+    .groups = "drop"
+  )
+
+# 3) Create a grid over (vpd, L) crossed with ecoregion scenarios
+grid <- crossing(
+  vpd = vpd_seq,
+  L   = L_seq,
+  eco_wts
+)
+
+# 4) Add typical values for parametric covariates
+grid <- grid %>%
+  mutate(
+    pct_conf  = median(moisture_data$pct_conf,  na.rm = TRUE),
+    fwi_90th  = median(moisture_data$fwi_90th,  na.rm = TRUE),
+    mean_evi = median(moisture_data$mean_ndvi, na.rm = TRUE),
+    aou       = median(moisture_data$aou,       na.rm = TRUE),
+    pct_up    = median(moisture_data$pct_up,    na.rm = TRUE),
+    year    = median(moisture_data$year,    na.rm = TRUE),
+
+    # Provide factor levels (any valid level) to avoid errors
+    fire_size_class = levels(moisture_data$fire_size_class)[1]
+  )
+
+# 5) Evaluate a single smooth on this grid AND get full-model fitted values
+#    A) Partial contribution (on link == response for scat) of the ACP surface:
+smooth_df <- smooth_estimates(
+  m_vpd_median,
+  smooth = "te(vpd,L):weights_acp",  # use the exact label from `draw(m_vpd_median)`
+  data = grid
+)
+
+#    B) Population-level fitted values (exclude random effects)
+fv <- fitted_values(
+  m_vpd_median,
+  data = grid,
+  scale = "response",
+  exclude = c("s(year)", "s(fire_size_class)", "s(ecoregion_lvl)")
+)
+
+# `fv` returns `.fitted` for the whole model response at each (vpd, L, ecoregion)
+# Merge to plot either the full response or the partial smooth
+plot_df <- fv  # or use `smooth_df` if you want only the ACP surface
+
+# 6) Plot as a proper tile (regular grid)
+ggplot(plot_df, aes(x = L, y = vpd, fill = .fitted)) +
+  geom_tile() +  # tile is safer than raster for grids built via crossing()
+  facet_wrap(~ ecoregion_lvl) +
+  scale_fill_viridis_c("Estimated fire risk", option = "viridis") +
+  scale_x_continuous("Lag (days before fire start)") +
+  scale_y_continuous("VPD") +
+  theme_classic()
+
+```
+
+
+```{r}
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(gratia)   # evaluate_smooth(), fitted_values()
+library(mgcv)
+
+## ---- SETTINGS ---------------------------------------------------------------
+# Choose which by-weighted surface to visualize:
+smooth_label <- "te(vpd,L):weights_btl"  # check via draw(m_vpd_median)
+
+# Toggle CI outlining
+ci <- TRUE
+
+# Grid resolution
+n_vpd <- 60
+n_L   <- 60
+
+## ---- BUILD GRID -------------------------------------------------------------
+# 1) Regular sequences for vpd and L
+vpd_seq <- seq(min(moisture_data$vpd, na.rm = TRUE),
+               max(moisture_data$vpd, na.rm = TRUE), length.out = n_vpd)
+L_seq   <- seq(min(moisture_data$L,   na.rm = TRUE),
+               max(moisture_data$L,   na.rm = TRUE), length.out = n_L)
+
+# 2) Ecoregion-specific by-weight scenarios
+#    Turn ON chosen weight (median within ecoregion), others OFF to isolate the surface.
+eco_wts <- moisture_data %>%
+  group_by(ecoregion_lvl) %>%
+  summarize(
+    weights_acp = 0,
+    weights_ln  = 0,
+    weights_btl = median(weights_btl, na.rm = TRUE),
+    weights_lsj = 0,
+    weights_lw  = 0,
+    weights_pr  = 0,
+    .groups     = "drop"
+  )
+
+# 3) Cross (vpd, L) with ecoregion scenarios
+grid <- crossing(
+  vpd = vpd_seq,
+  L   = L_seq,
+  eco_wts
+)
+
+# 4) Add typical (fixed) values for parametric covariates
+grid <- grid %>%
+  mutate(
+    pct_conf  = median(moisture_data$pct_conf,  na.rm = TRUE),
+    fwi_90th  = median(moisture_data$fwi_90th,  na.rm = TRUE),
+    mean_evi = median(moisture_data$mean_ndvi, na.rm = TRUE),
+    aou       = median(moisture_data$aou,       na.rm = TRUE),
+    pct_up    = median(moisture_data$pct_up,    na.rm = TRUE),
+    year = median(moisture_data$year, na.rm = TRUE),
+    # Provide valid factor levels (any single level) to avoid prediction errors
+    fire_size_class = levels(moisture_data$fire_size_class)[1]
+  )
+
+## ---- EVALUATE SMOOTH (PARTIAL) ---------------------------------------------
+# Partial contribution of the selected smooth (on link == response for scat())
+smooth_df <- smooth_estimates(
+  m_vpd_median,
+  smooth = smooth_label,
+  data   = grid
+)
+# smooth_df columns include: x, y, .value, .se, and any variables you supplied.
+
+## ---- FULL MODEL FITS ON RESPONSE SCALE -------------------------------------
+# Population-level fits: exclude random intercepts for a clean surface
+fv <- fitted_values(
+  m_vpd_median,
+  data   = grid,
+  scale  = "response",
+  exclude = c("s(year)", "s(fire_size_class)", "s(ecoregion_lvl)")
+)
+# fv has: .fitted (response scale) and .se (response scale)
+
+# Merge fitted values + CI with the grid (for plotting by ecoregion)
+eval_df <- fv %>%
+  mutate(
+    lower_ci = .fitted - 1.96 * .se,
+    upper_ci = .fitted + 1.96 * .se
+  ) %>%
+  # For the "intercept" reference: use the model intercept on response scale.
+  # With identity link, intercept_resp = intercept (link == response).
+  # If you prefer a covariate-specific baseline, compute it via predict() at a baseline (vpd0, L0).
+  mutate(intercept = coef(m_vpd_median)[1]) %>%
+  # Keep only the variables we need (including ecoregion facet)
+  select(ecoregion_lvl, vpd, L, .fitted, .se, lower_ci, upper_ci, intercept)
+
+## ---- PLOT -------------------------------------------------------------------
+p <- ggplot(eval_df, aes(x = L, y = vpd, fill = .fitted)) +
+  geom_tile() +
+  facet_wrap(~ ecoregion_lvl) +
+  scale_fill_viridis_c("Estimated fire risk", option = "viridis") +
+  scale_x_continuous("Lag (days before fire start)") +
+  scale_y_continuous("VPD") +
+  theme_classic()
+
+## ---- OPTIONAL: CI OUTLINE WHERE INTERCEPT OUTSIDE 95% CI --------------------
+if (ci == TRUE) {
+  # Outline areas where the 95% CI does NOT contain the intercept
+  mask <- eval_df %>%
+    rowwise() %>%
+    dplyr::filter(!dplyr::between(intercept, lower_ci, upper_ci)) %>%
+    ungroup()
+
+  p <- p +
+    geom_tile(data = mask, color = "black", size = 0.75, linejoin = "round") +
+    geom_raster(data = mask)  # optional fill overlay; tile already handles grid spacing
+}
+
+print(p)
+
+```
+
+
+
+```{r}
+# in eval_df are there any instances when the conifence interval does not overlap the intercept?
+
+library(gratia)
+
+# Evaluate one surface at a chosen non-zero by-weight, others = 0
+ 
+smooth_df <- smooth_estimates(
+  m_vpd_median,
+  smooth = "te(vpd,L):weights_btl",
+  partial_match = TRUE,
+  unconditional = TRUE
+)
+
+# Compute simultaneous intervals
+
+# Add simultaneous 95% confidence intervals for the partial smooth (.value)
+smooth_ci <- add_confint(
+  smooth_df,
+  coverage = 0.95,
+  type     = "simultaneous",
+  parm     = ".value"
+)
+
+# Flag significant locations where CI excludes 0 (null effect)
+smooth_ci <- smooth_ci |>
+  mutate(sig = ifelse(.lower_ci > 0 | .upper_ci < 0, TRUE, FALSE))
+
+# Plot: shade/outline cells with sig == TRUE
+
+# Plot: x = L, y = vpd; outline significant tiles
+ggplot(smooth_ci, aes(x = L, y = vpd, fill = .estimate)) +
+  geom_tile() +
+  geom_tile(data = filter(smooth_ci, sig), color = "black",
+            size = 0.75, linejoin = "round", fill = NA) 
+  scale_fill_viridis_c("Partial effect\nte(vpd, L):weights_acp") +
+  scale_x_continuous("Lag (days before fire start)") +
+  scale_y_continuous("VPD") +
+  theme_classic()
+
+```
