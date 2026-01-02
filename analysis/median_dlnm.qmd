@@ -146,10 +146,10 @@ m_cmi_ext <- bam(pct_90 ~
 
 ```{r}
 
-saveRDS(m_vpd_median, here("analysis", "models","m_vpd_ma_median.rds"))
-saveRDS(m_cmi_median, here("analysis", "models","m_cmi_ma_median.rds"))
-saveRDS(m_vpd_ext, here("analysis", "models","m_vpd_ma_ext.rds"))
-saveRDS(m_cmi_ext, here("analysis", "models","m_cmi_ma_ext.rds"))
+saveRDS(m_vpd_median, here("analysis", "models","m_vpd_median.rds"))
+saveRDS(m_cmi_median, here("analysis", "models","m_cmi_median.rds"))
+saveRDS(m_vpd_ext, here("analysis", "models","m_vpd_ext.rds"))
+saveRDS(m_cmi_ext, here("analysis", "models","m_cmi_ext.rds"))
 ```
 
 ## assess model fits
@@ -211,7 +211,7 @@ plot_vpd_ln
 
 
 ```{r}
-estimates_cmi <- get_lag_estimates(m_cmi_median, lag_var = "LL", smooth_var = "cmi_wy", weights = "weights_btl2")
+estimates_cmi <- get_lag_estimates(m_cmi_median,  "LL",  "cmi_wy", "weights_btl2")
 plot_cmi <- plot_lag_smooth(m_cmi_median, estimates_cmi, "cmi_wy", "LL", "weights_btl2")
 
 plot_cmi
